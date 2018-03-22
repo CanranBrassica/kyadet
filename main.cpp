@@ -1,144 +1,169 @@
 #include <iostream>
-#include <tuple>
-#include <cmath>
 #include <memory>
 
-namespace kyadet {
-/*
- * Forward型自動微分における中間変数を抽象するclass
- */
-template<class Derived>
+namespace kyadet
+{
+template <class Derived>
 struct Parameter {
-    /* Concept
-     * メンバ変数はすべてParameterを継承した型（Inputは例外？)
-     * 型が演算を、メンバ変数（1つないし2つ）が引数を表す
-     */
-    /*
-     * 計算グラフが閉じた構造を持っている場合の対策
-     * メンバ変数をポインタにする
-     * y.diff(x)は\frac{\partial y}{\partial x}
-     */
 };
 
+template <class T>
+class Input : public Parameter<Input<T>>
+{
+    std::shared_ptr<T> t_ = nullptr;
 
-template<class T>
-class Input : Parameter<Input<T>> {
-    //右辺値参照とかそのへんの考慮が必要そう？
-    T t_;
 public:
     explicit Input(T t)
-        : t_(t) {}
+        : t_(std::make_shared<T>(t)) {}
 
-    auto value() -> T {
-        std::cout << "this: " << this << std::endl;
-        return t_;
+    T value() const
+    {
+        return *t_;
     }
 
-    template<class U>
-    auto diff(const U &p) {
-        std::cout << this << " " << &p << std::endl;
-        return this == &p ? T(1) : T(0);
+    T diff(const std::shared_ptr<void>& p) const
+    {
+        return this == p.get() ? T(1) : T(0);
     }
+};  //class Input
 
-};
+template <class L, class R>
+class Add : public Parameter<Add<L, R>>
+{
+    std::shared_ptr<L> l_ = nullptr;
+    std::shared_ptr<R> r_ = nullptr;
 
-
-// Parameterを継承していなければInputをかます
-template<class T>
-auto toInput(T arg) -> std::enable_if_t<std::is_base_of_v<Parameter<T>, T>, T> {
-    return arg;
-};
-
-template<class T>
-auto toInput(T arg) -> std::enable_if_t<!std::is_base_of_v<Parameter<T>, T>, Input<T>> {
-    return Input<T>(arg);
-};
-
-
-template<class L, class R>
-class Add : public Parameter<Add<L, R>> {
-    L l_;
-    R r_;
 public:
-    explicit Add(L l, R r)
-        : l_(l), r_(r) {}
-
-    auto value() {
-        return l_.value() + r_.value();
+    explicit Add(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
+        : l_(l), r_(r)
+    {
+        std::cout << "どっちもshared_ptrなAdd constructer" << std::endl;
     }
 
-    template<class U>
-    auto diff(const U &p) {
-        return l_.diff(p) + r_.diff(p);
+    explicit Add(L&& l, const std::shared_ptr<R>& r)
+        : l_(std::make_shared<L>(l)), r_(r)
+    {
+        std::cout << "L&&なAdd constructer" << std::endl;
     }
 
-};
-
-template<class L, class R>
-auto operator+(L l, R r) {
-    return Add<decltype(toInput(l)), decltype(toInput(r))>(toInput(l), toInput(r));
-};
-
-template<class L, class R>
-class Mult : public Parameter<Mult<L, R>> {
-    L l_;
-    R r_;
-public:
-    explicit Mult(L l, R r)
-        : l_(l), r_(r) {}
-
-    auto value() {
-        return l_.value() * r_.value();
+    explicit Add(const std::shared_ptr<L>& l, R&& r)
+        : l_(l), r_(std::make_shared<R>(r))
+    {
+        std::cout << "R&&なAdd constructer" << std::endl;
     }
 
-    template<class U>
-    auto diff(const U &p) {
-        return l_.diff(p) * r_.value() + l_.value() * r_.diff(p);
+    auto value() const
+    {
+        return l_->value() + r_->value();
     }
 
-};
-
-template<class L, class R>
-auto operator*(L l, R r) {
-    return Mult<decltype(toInput(l)), decltype(toInput(r))>(toInput(l), toInput(r));
-};
-
-/*
-template<class X>
-class Sin : public Parameter {
-    X x_;
-public:
-    explicit Sin(X x)
-        : x_(x) {}
-
-    auto value() {
-        return std::sin(x_.value());
+    auto diff(const std::shared_ptr<void>& p) const
+    {
+        return l_->diff(p) + r_->diff(p);
     }
-};
 
-template<class X>
-auto sin(X x) {
-    return Sin<decltype(toInput(x))>(x);
+};  //class Add
+
+template <class L, class R,
+    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+auto operator+(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
+{
+    std::cout << "operator+ & &" << std::endl;
+    return std::make_shared<Add<L, R>>(l, r);
 }
- */
 
-}//namespace kyadet
+template <class L, class R,
+    std::enable_if_t<std::is_arithmetic_v<L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+auto operator+(L&& l, const std::shared_ptr<R>& r) -> std::shared_ptr<Add<Input<L>, R>>
+{
+    std::cout << "operator+ && &" << std::endl;
+    return std::make_shared<Add<Input<L>, R>>(Input<L>{l}, r);
+}
 
+template <class L, class R,
+    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_arithmetic_v<R>, std::nullptr_t> = nullptr>
+auto operator+(const std::shared_ptr<L>& l, R&& r) -> std::shared_ptr<Add<L, Input<R>>>
+{
+    std::cout << "operator+ && &" << std::endl;
+    return std::make_shared<Add<L, Input<R>>>(l, Input<R>(r));
+}
 
-int main() {
+template <class L, class R>
+class Mult : public Parameter<Mult<L, R>>
+{
+    std::shared_ptr<L> l_ = nullptr;
+    std::shared_ptr<R> r_ = nullptr;
+
+public:
+    explicit Mult(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
+        : l_(l), r_(r)
+    {
+        std::cout << "どっちもshared_ptrなMult constructer" << std::endl;
+    }
+
+    explicit Mult(L&& l, const std::shared_ptr<R>& r)
+        : l_(std::make_shared<L>(l)), r_(r)
+    {
+        std::cout << "L&&なMult constructer" << std::endl;
+    }
+
+    explicit Mult(const std::shared_ptr<L>& l, R&& r)
+        : l_(l), r_(std::make_shared<R>(r))
+    {
+        std::cout << "R&&なMult constructer" << std::endl;
+    }
+
+    auto value() const
+    {
+        return l_->value() * r_->value();
+    }
+
+    auto diff(const std::shared_ptr<void>& p) const
+    {
+        return l_->diff(p) * r_->value() + l_->value() * r_->diff(p);
+    }
+
+};  //class Mult
+
+template <class L, class R,
+    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+auto operator*(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
+{
+    std::cout << "operator* & &" << std::endl;
+    return std::make_shared<Mult<L, R>>(l, r);
+}
+
+template <class L, class R,
+    std::enable_if_t<std::is_arithmetic_v<L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+auto operator*(L&& l, const std::shared_ptr<R>& r) -> std::shared_ptr<Mult<Input<L>, R>>
+{
+    std::cout << "operator* && &" << std::endl;
+    return std::make_shared<Mult<Input<L>, R>>(Input<L>{l}, r);
+}
+
+template <class L, class R,
+    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_arithmetic_v<R>, std::nullptr_t> = nullptr>
+auto operator*(const std::shared_ptr<L>& l, R&& r) -> std::shared_ptr<Mult<L, Input<R>>>
+{
+    std::cout << "operator* && &" << std::endl;
+    return std::make_shared<Mult<L, Input<R>>>(l, Input<R>(r));
+}
+
+}  //namespace kyadet
+
+int main()
+{
     using namespace kyadet;
-
-    Input<int> x1(1);
-    Input<int> x2(2);
-
-    std::cout << x1.value() << std::endl;
-    std::cout << x2.value() << std::endl;
-    std::cout << (x1 + x2).value() << std::endl;
-    /*
-    auto y = x1 * x2 + x1 + 4;
-    std::cout << y.value() << std::endl; //1*2+1+4=7
-    std::cout << y.diff(x1) << std::endl; //x2+1=3
-     */
-
+    auto x1 = std::make_shared<Input<int>>(1);
+    auto x2 = std::make_shared<Input<int>>(1);
+    auto y = x1 * x1 + x1 + x2 * x1;
+    std::cout << y->value() << std::endl;
+    std::cout << y->diff(x1) << std::endl;
     return 0;
 }
