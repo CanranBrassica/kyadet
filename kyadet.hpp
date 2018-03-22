@@ -10,14 +10,14 @@ template <class Derived>
 struct Parameter {
 };
 
-template <class T>
+template <class T, std::enable_if_t<!std::is_base_of_v<Parameter<T>, T>, std::nullptr_t> = nullptr>
 class Input : public Parameter<Input<T>>
 {
-    std::unique_ptr<T> t_ = nullptr;
+    std::shared_ptr<T> t_ = nullptr;
 
 public:
     explicit Input(T t)
-        : t_(std::make_unique<T>(t)) {}
+        : t_(std::make_shared<T>(t)) {}
 
     auto value() const
     {
@@ -27,6 +27,11 @@ public:
     auto diff(const std::shared_ptr<void>& p) const
     {
         return this == p.get() ? std::make_shared<Input<T>>(1) : std::make_shared<Input<T>>(0);
+    }
+
+    void reset(T t)
+    {
+        t_ = std::make_shared<T>(t);
     }
 };  //class Input
 
@@ -79,7 +84,7 @@ template <class L, class R,
     std::enable_if_t<std::is_arithmetic_v<R>, std::nullptr_t> = nullptr>
 auto operator+(const std::shared_ptr<L>& l, R&& r)
 {
-    return std::make_shared<Add<L, Input<R>>>(l, Input<R>(r));
+    return std::make_shared<Add<L, Input<R>>>(l, Input<R>{r});
 }
 
 template <class L, class R>
