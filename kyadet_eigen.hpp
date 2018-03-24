@@ -1,6 +1,7 @@
 #pragma once
 
-namespace kyadet{
+namespace kyadet
+{
 
 
-} //namespace kyadet
+}  //namespace kyadet

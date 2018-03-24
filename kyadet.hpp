@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <cmath>
+#include <string>
 
 namespace kyadet
 {
@@ -13,7 +14,7 @@ struct Parameter {
 template <class T, std::enable_if_t<!std::is_base_of_v<Parameter<T>, T>, std::nullptr_t> = nullptr>
 class Input : public Parameter<Input<T>>
 {
-    std::shared_ptr<T> t_ = nullptr;
+    std::shared_ptr<T> t_;
 
 public:
     explicit Input(T t)
@@ -24,22 +25,23 @@ public:
         return *t_;
     }
 
-    auto diff(const std::shared_ptr<void>& p) const
+    auto diffNode(const std::shared_ptr<void>& p) const
     {
         return this == p.get() ? std::make_shared<Input<T>>(1) : std::make_shared<Input<T>>(0);
     }
 
-    void reset(T t)
+    void reset(const T& t)
     {
         t_ = std::make_shared<T>(t);
     }
+
 };  //class Input
 
 template <class L, class R>
 class Add : public Parameter<Add<L, R>>
 {
-    std::shared_ptr<L> l_ = nullptr;
-    std::shared_ptr<R> r_ = nullptr;
+    std::shared_ptr<L> l_;
+    std::shared_ptr<R> r_;
 
 public:
     explicit Add(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
@@ -56,9 +58,9 @@ public:
         return l_->value() + r_->value();
     }
 
-    auto diff(const std::shared_ptr<void>& p) const
+    auto diffNode(const std::shared_ptr<void>& p) const
     {
-        return l_->diff(p) + r_->diff(p);
+        return l_->diffNode(p) + r_->diffNode(p);
     }
 
 };  //class Add
@@ -90,8 +92,8 @@ auto operator+(const std::shared_ptr<L>& l, R&& r)
 template <class L, class R>
 class Sub : public Parameter<Sub<L, R>>
 {
-    std::shared_ptr<L> l_ = nullptr;
-    std::shared_ptr<R> r_ = nullptr;
+    std::shared_ptr<L> l_;
+    std::shared_ptr<R> r_;
 
 public:
     explicit Sub(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
@@ -108,9 +110,9 @@ public:
         return l_->value() - r_->value();
     }
 
-    auto diff(const std::shared_ptr<void>& p) const
+    auto diffNode(const std::shared_ptr<void>& p) const
     {
-        return l_->diff(p) - r_->diff(p);
+        return l_->diffNode(p) - r_->diffNode(p);
     }
 
 };  //class Sub
@@ -142,8 +144,8 @@ auto operator-(const std::shared_ptr<L>& l, R&& r)
 template <class L, class R>
 class Mult : public Parameter<Mult<L, R>>
 {
-    std::shared_ptr<L> l_ = nullptr;
-    std::shared_ptr<R> r_ = nullptr;
+    std::shared_ptr<L> l_;
+    std::shared_ptr<R> r_;
 
 public:
     explicit Mult(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
@@ -160,9 +162,9 @@ public:
         return l_->value() * r_->value();
     }
 
-    auto diff(const std::shared_ptr<void>& p) const
+    auto diffNode(const std::shared_ptr<void>& p) const
     {
-        return l_->diff(p) * r_ + l_ * r_->diff(p);
+        return l_->diffNode(p) * r_ + l_ * r_->diffNode(p);
     }
 
 };  //class Mult
@@ -194,8 +196,8 @@ auto operator*(const std::shared_ptr<L>& l, R&& r)
 template <class L, class R>
 class Div : public Parameter<Div<L, R>>
 {
-    std::shared_ptr<L> l_ = nullptr;
-    std::shared_ptr<R> r_ = nullptr;
+    std::shared_ptr<L> l_;
+    std::shared_ptr<R> r_;
 
 public:
     explicit Div(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
@@ -212,9 +214,9 @@ public:
         return l_->value() / r_->value();
     }
 
-    auto diff(const std::shared_ptr<void>& p) const
+    auto diffNode(const std::shared_ptr<void>& p) const
     {
-        return (l_->diff(p) * r_ - l_ * r_->diff(p)) / r_ / r_;
+        return (l_->diffNode(p) * r_ - l_ * r_->diffNode(p)) / r_ / r_;
     }
 
 };  //class Div
@@ -246,7 +248,7 @@ auto operator/(const std::shared_ptr<L>& l, R&& r)
 template <class T>
 class Exp : public Parameter<Exp<T>>
 {
-    std::shared_ptr<T> t_ = nullptr;
+    std::shared_ptr<T> t_;
 
 public:
     explicit Exp(const std::shared_ptr<T>& t)
@@ -260,9 +262,9 @@ public:
         return std::exp(t_->value());
     }
 
-    auto diff(const std::shared_ptr<void>& p) const
+    auto diffNode(const std::shared_ptr<void>& p) const
     {
-        return exp(t_) * t_->diff(p);
+        return exp(t_) * t_->diffNode(p);
     }
 };  //class Exp
 
