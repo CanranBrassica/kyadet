@@ -7,12 +7,11 @@
 namespace kyadet
 {
 
-template <class Derived>
 struct Parameter {
 };
 
-template <class T, std::enable_if_t<!std::is_base_of_v<Parameter<T>, T>, std::nullptr_t> = nullptr>
-class Input : public Parameter<Input<T>>
+template <class T, std::enable_if_t<!std::is_base_of_v<Parameter, T>, std::nullptr_t> = nullptr>
+class Input : public Parameter
 {
     std::shared_ptr<T> t_;
 
@@ -25,7 +24,7 @@ public:
         return *t_;
     }
 
-    auto diffNode(const std::shared_ptr<void>& p) const
+    auto diffGraph(const std::shared_ptr<Parameter>& p) const
     {
         return this == p.get() ? std::make_shared<Input<T>>(1) : std::make_shared<Input<T>>(0);
     }
@@ -38,7 +37,7 @@ public:
 };  //class Input
 
 template <class L, class R>
-class Add : public Parameter<Add<L, R>>
+class Add : public Parameter
 {
     std::shared_ptr<L> l_;
     std::shared_ptr<R> r_;
@@ -58,16 +57,16 @@ public:
         return l_->value() + r_->value();
     }
 
-    auto diffNode(const std::shared_ptr<void>& p) const
+    auto diffGraph(const std::shared_ptr<Parameter>& p) const
     {
-        return l_->diffNode(p) + r_->diffNode(p);
+        return l_->diffGraph(p) + r_->diffGraph(p);
     }
 
 };  //class Add
 
 template <class L, class R,
-    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
-    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+    std::enable_if_t<std::is_base_of_v<Parameter, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter, R>, std::nullptr_t> = nullptr>
 auto operator+(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
 {
     return std::make_shared<Add<L, R>>(l, r);
@@ -75,14 +74,14 @@ auto operator+(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
 
 template <class L, class R,
     std::enable_if_t<std::is_arithmetic_v<L>, std::nullptr_t> = nullptr,
-    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+    std::enable_if_t<std::is_base_of_v<Parameter, R>, std::nullptr_t> = nullptr>
 auto operator+(L&& l, const std::shared_ptr<R>& r)
 {
     return std::make_shared<Add<Input<L>, R>>(Input<L>{l}, r);
 }
 
 template <class L, class R,
-    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter, L>, std::nullptr_t> = nullptr,
     std::enable_if_t<std::is_arithmetic_v<R>, std::nullptr_t> = nullptr>
 auto operator+(const std::shared_ptr<L>& l, R&& r)
 {
@@ -90,7 +89,7 @@ auto operator+(const std::shared_ptr<L>& l, R&& r)
 }
 
 template <class L, class R>
-class Sub : public Parameter<Sub<L, R>>
+class Sub : public Parameter
 {
     std::shared_ptr<L> l_;
     std::shared_ptr<R> r_;
@@ -110,16 +109,16 @@ public:
         return l_->value() - r_->value();
     }
 
-    auto diffNode(const std::shared_ptr<void>& p) const
+    auto diffGraph(const std::shared_ptr<Parameter>& p) const
     {
-        return l_->diffNode(p) - r_->diffNode(p);
+        return l_->diffGraph(p) - r_->diffGraph(p);
     }
 
 };  //class Sub
 
 template <class L, class R,
-    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
-    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+    std::enable_if_t<std::is_base_of_v<Parameter, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter, R>, std::nullptr_t> = nullptr>
 auto operator-(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
 {
     return std::make_shared<Sub<L, R>>(l, r);
@@ -127,14 +126,14 @@ auto operator-(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
 
 template <class L, class R,
     std::enable_if_t<std::is_arithmetic_v<L>, std::nullptr_t> = nullptr,
-    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+    std::enable_if_t<std::is_base_of_v<Parameter, R>, std::nullptr_t> = nullptr>
 auto operator-(L&& l, const std::shared_ptr<R>& r)
 {
     return std::make_shared<Sub<Input<L>, R>>(Input<L>{l}, r);
 }
 
 template <class L, class R,
-    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter, L>, std::nullptr_t> = nullptr,
     std::enable_if_t<std::is_arithmetic_v<R>, std::nullptr_t> = nullptr>
 auto operator-(const std::shared_ptr<L>& l, R&& r)
 {
@@ -142,7 +141,7 @@ auto operator-(const std::shared_ptr<L>& l, R&& r)
 }
 
 template <class L, class R>
-class Mult : public Parameter<Mult<L, R>>
+class Mult : public Parameter
 {
     std::shared_ptr<L> l_;
     std::shared_ptr<R> r_;
@@ -162,16 +161,16 @@ public:
         return l_->value() * r_->value();
     }
 
-    auto diffNode(const std::shared_ptr<void>& p) const
+    auto diffGraph(const std::shared_ptr<Parameter>& p) const
     {
-        return l_->diffNode(p) * r_ + l_ * r_->diffNode(p);
+        return l_->diffGraph(p) * r_ + l_ * r_->diffGraph(p);
     }
 
 };  //class Mult
 
 template <class L, class R,
-    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
-    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+    std::enable_if_t<std::is_base_of_v<Parameter, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter, R>, std::nullptr_t> = nullptr>
 auto operator*(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
 {
     return std::make_shared<Mult<L, R>>(l, r);
@@ -179,14 +178,14 @@ auto operator*(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
 
 template <class L, class R,
     std::enable_if_t<std::is_arithmetic_v<L>, std::nullptr_t> = nullptr,
-    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+    std::enable_if_t<std::is_base_of_v<Parameter, R>, std::nullptr_t> = nullptr>
 auto operator*(L&& l, const std::shared_ptr<R>& r)
 {
     return std::make_shared<Mult<Input<L>, R>>(Input<L>{l}, r);
 }
 
 template <class L, class R,
-    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter, L>, std::nullptr_t> = nullptr,
     std::enable_if_t<std::is_arithmetic_v<R>, std::nullptr_t> = nullptr>
 auto operator*(const std::shared_ptr<L>& l, R&& r)
 {
@@ -194,7 +193,7 @@ auto operator*(const std::shared_ptr<L>& l, R&& r)
 }
 
 template <class L, class R>
-class Div : public Parameter<Div<L, R>>
+class Div : public Parameter
 {
     std::shared_ptr<L> l_;
     std::shared_ptr<R> r_;
@@ -214,16 +213,16 @@ public:
         return l_->value() / r_->value();
     }
 
-    auto diffNode(const std::shared_ptr<void>& p) const
+    auto diffGraph(const std::shared_ptr<Parameter>& p) const
     {
-        return (l_->diffNode(p) * r_ - l_ * r_->diffNode(p)) / r_ / r_;
+        return (l_->diffGraph(p) * r_ - l_ * r_->diffGraph(p)) / r_ / r_;
     }
 
 };  //class Div
 
 template <class L, class R,
-    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
-    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+    std::enable_if_t<std::is_base_of_v<Parameter, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter, R>, std::nullptr_t> = nullptr>
 auto operator/(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
 {
     return std::make_shared<Div<L, R>>(l, r);
@@ -231,14 +230,14 @@ auto operator/(const std::shared_ptr<L>& l, const std::shared_ptr<R>& r)
 
 template <class L, class R,
     std::enable_if_t<std::is_arithmetic_v<L>, std::nullptr_t> = nullptr,
-    std::enable_if_t<std::is_base_of_v<Parameter<R>, R>, std::nullptr_t> = nullptr>
+    std::enable_if_t<std::is_base_of_v<Parameter, R>, std::nullptr_t> = nullptr>
 auto operator/(L&& l, const std::shared_ptr<R>& r)
 {
     return std::make_shared<Div<Input<L>, R>>(Input<L>{l}, r);
 }
 
 template <class L, class R,
-    std::enable_if_t<std::is_base_of_v<Parameter<L>, L>, std::nullptr_t> = nullptr,
+    std::enable_if_t<std::is_base_of_v<Parameter, L>, std::nullptr_t> = nullptr,
     std::enable_if_t<std::is_arithmetic_v<R>, std::nullptr_t> = nullptr>
 auto operator/(const std::shared_ptr<L>& l, R&& r)
 {
@@ -246,7 +245,7 @@ auto operator/(const std::shared_ptr<L>& l, R&& r)
 }
 
 template <class T>
-class Exp : public Parameter<Exp<T>>
+class Exp : public Parameter
 {
     std::shared_ptr<T> t_;
 
@@ -262,13 +261,13 @@ public:
         return std::exp(t_->value());
     }
 
-    auto diffNode(const std::shared_ptr<void>& p) const
+    auto diffGraph(const std::shared_ptr<Parameter>& p) const
     {
-        return exp(t_) * t_->diffNode(p);
+        return exp(t_) * t_->diffGraph(p);
     }
 };  //class Exp
 
-template <class T, std::enable_if_t<std::is_base_of_v<Parameter<T>, T>, std::nullptr_t> = nullptr>
+template <class T, std::enable_if_t<std::is_base_of_v<Parameter, T>, std::nullptr_t> = nullptr>
 auto exp(std::shared_ptr<T> t)
 {
     return std::make_shared<Exp<T>>(t);
