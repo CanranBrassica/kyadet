@@ -3,6 +3,7 @@
 #include <memory>
 #include <cmath>
 #include <string>
+#include <unordered_map>
 
 namespace kyadet
 {
@@ -29,10 +30,12 @@ public:
         return this == p.get() ? std::make_shared<Input<T>>(1) : std::make_shared<Input<T>>(0);
     }
 
+    /*
     void reset(const T& t)
     {
-        t_ = std::make_shared<T>(t);
+        *t_ = t;
     }
+     */
 
 };  //class Input
 
@@ -61,6 +64,20 @@ public:
     {
         return l_->diffGraph(p) + r_->diffGraph(p);
     }
+
+    /*
+    template<class U>
+    auto diff(){
+        std::unordered_map<std::shared_ptr<Parameter>,U>& umap;
+        diffImpl(umap);
+        return umap;
+    }
+
+    template<class U>
+    void diffImpl(std::unordered_map<std::shared_ptr<Parameter>,U>& umap){
+
+    }
+     */
 
 };  //class Add
 
@@ -265,6 +282,7 @@ public:
     {
         return exp(t_) * t_->diffGraph(p);
     }
+
 };  //class Exp
 
 template <class T, std::enable_if_t<std::is_base_of_v<Parameter, T>, std::nullptr_t> = nullptr>
